@@ -1,0 +1,57 @@
+﻿@inject IHttpContextAccessor HttpContextAccessor
+@using Microsoft.AspNetCore.Http
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - GQuiz</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <a class="navbar-brand" asp-page="/Index">📝 GQuiz</a>
+                <div class="nav-items">
+                    @{
+                        var session = HttpContextAccessor.HttpContext?.Session;
+                    }
+
+                    @if (session?.GetInt32("UserId") != null)
+                    {
+                        <span class="user-info">👤 @session.GetString("Username")</span>
+                        @if (session.GetString("IsHost") == "true")
+                        {
+                            <a asp-page="/Host/Dashboard" class="nav-link">Dashboard</a>
+                        }
+                        else
+                        {
+                            <a asp-page="/Student/Join" class="nav-link">Join Quiz</a>
+                        }
+                        <a asp-page="/Logout" class="nav-link">Logout</a>
+                    }
+                    else
+                    {
+                        <a asp-page="/Login" class="nav-link">Login</a>
+                        <a asp-page="/Signup" class="nav-link">Sign Up</a>
+                    }
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        @RenderBody()
+    </main>
+
+    <footer>
+        <div class="container">
+            &copy; 2024 GQuiz - Distributed Quiz System
+        </div>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

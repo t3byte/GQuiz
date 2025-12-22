@@ -1,0 +1,212 @@
+﻿@page
+@model GQuiz.Pages.Student.JoinModel
+@{
+    ViewData["Title"] = "Join Quiz";
+}
+
+<div class="join-container">
+    <div class="join-card">
+        <div class="join-header">
+            <div class="join-icon">🎯</div>
+            <h1>Join Quiz Session</h1>
+            <p>Enter the session code provided by your instructor</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-error">@Model.ErrorMessage</div>
+        }
+
+        @if (Model.Session != null)
+        {
+            <div class="session-found">
+                <div class="success-icon">✅</div>
+                <h2>Session Found!</h2>
+
+                <div class="session-details">
+                    <h3>@Model.Session.Quiz.Title</h3>
+                    <p>@Model.Session.Quiz.Description</p>
+
+                    <div class="session-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">📝</span>
+                            <span>@Model.Session.Quiz.Questions.Count Questions</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">🏆</span>
+                            <span>@Model.Session.Quiz.Questions.Sum(q => q.Points) Total Points</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">👥</span>
+                            <span>@Model.Session.Participants.Count Participants</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" asp-page-handler="Confirm">
+                    <input type="hidden" name="sessionId" value="@Model.SessionId" />
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">
+                        🚀 Join Now
+                    </button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <form method="post" class="join-form">
+                <div class="form-group">
+                    <label asp-for="SessionCode">Session Code</label>
+                    <input asp-for="SessionCode"
+                           class="form-control code-input"
+                           placeholder="Enter 6-digit code"
+                           maxlength="6"
+                           pattern="[0-9]{6}"
+                           autofocus />
+                    <span asp-validation-for="SessionCode" class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block">
+                    🔍 Find Session
+                </button>
+            </form>
+
+            <div class="join-help">
+                <p>💡 <strong>Tip:</strong> Ask your instructor for the session code</p>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .join-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 200px);
+        padding: 2rem;
+    }
+
+    .join-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 3rem;
+        box-shadow: var(--shadow-xl);
+        max-width: 600px;
+        width: 100%;
+        animation: fadeInUp 0.5s ease-out;
+    }
+
+    .join-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+
+    .join-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        animation: bounce 2s infinite;
+    }
+
+    @@keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .join-header h1 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: var(--gray-800);
+        margin-bottom: 0.5rem;
+    }
+
+    .join-header p {
+        color: var(--gray-600);
+        font-size: 1.05rem;
+    }
+
+    .code-input {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: 0.5rem;
+        font-family: 'Courier New', monospace;
+        padding: 1.25rem;
+    }
+
+    .join-help {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: var(--light);
+        border-radius: var(--radius);
+        border-left: 4px solid var(--primary);
+    }
+
+        .join-help p {
+            margin: 0;
+            color: var(--gray-700);
+        }
+
+    .session-found {
+        text-align: center;
+    }
+
+    .success-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        animation: bounceIn 0.6s ease-out;
+    }
+
+    .session-found h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--success);
+        margin-bottom: 2rem;
+    }
+
+    .session-details {
+        background: var(--light);
+        padding: 2rem;
+        border-radius: var(--radius);
+        margin-bottom: 2rem;
+        text-align: left;
+    }
+
+        .session-details h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+
+        .session-details p {
+            color: var(--gray-600);
+            margin-bottom: 1.5rem;
+        }
+
+    .session-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: white;
+        border-radius: var(--radius);
+        border: 2px solid var(--gray-200);
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .meta-icon {
+        font-size: 1.25rem;
+    }
+</style>

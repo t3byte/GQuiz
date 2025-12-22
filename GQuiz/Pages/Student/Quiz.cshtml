@@ -1,0 +1,759 @@
+﻿@page
+@model GQuiz.Pages.Student.QuizModel
+@{
+    ViewData["Title"] = "Quiz";
+    Layout = null; // Full screen quiz mode
+
+    // Precompute JSON for initialQuestions to avoid anonymous-typed null-coalescing issues
+    // Serialize as object to avoid anonymous type / List<object> mismatch
+    var initialQuestionsJson = System.Text.Json.JsonSerializer.Serialize<object>(
+        Model.Session != null
+            ? (object)Model.Session.Quiz.Questions
+                .OrderBy(q => q.OrderIndex)
+                .Select(q => new {
+                    id = q.Id,
+                    orderIndex = q.OrderIndex,
+                    text = q.Text,
+                    optionA = q.OptionA,
+                    optionB = q.OptionB,
+                    optionC = q.OptionC,
+                    optionD = q.OptionD,
+                    correctAnswer = q.CorrectAnswer,
+                    timeLimit = q.TimeLimit,
+                    points = q.Points
+                })
+                .ToList()
+            : (object)new List<object>()
+    );
+
+    // Prepare raw current question id (number or null)
+    var currentQuestionIdRaw = (Model.Session?.CurrentQuestionId.HasValue ?? false) ? Model.Session.CurrentQuestionId.Value.ToString() : "null";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - GQuiz</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body class="quiz-body">
+    <div class="quiz-container">
+        <!-- Header -->
+        <div class="quiz-header">
+            <div class="quiz-info">
+                <h1>@Model.Session?.Quiz.Title</h1>
+                <div class="session-code-display">Code: @Model.Session?.SessionCode</div>
+            </div>
+            <div class="quiz-stats">
+                <div class="stat-box">
+                    <div class="stat-label">Your Score</div>
+                    <div class="stat-value" id="userScore">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Rank</div>
+                    <div class="stat-value" id="userRank">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Quiz Area -->
+        <div class="quiz-main">
+            <div class="waiting-screen" id="waitingScreen">
+                <div class="waiting-animation">
+                    <div class="pulse-loader"></div>
+                </div>
+                <h2>Waiting for quiz to start...</h2>
+                <p>The instructor will begin shortly</p>
+                <div class="participant-count">
+                    <span id="participantCount">@Model.Session?.Participants.Count</span> participants joined
+                </div>
+            </div>
+
+            <div class="question-screen" id="questionScreen" style="display: none;">
+                <div class="question-timer">
+                    <div class="timer-bar">
+                        <div class="timer-fill" id="timerFill"></div>
+                    </div>
+                    <div class="timer-text" id="timerText">30s</div>
+                </div>
+
+                <div class="question-content">
+                    <div class="question-number" id="questionNumber">Question 1</div>
+                    <div class="question-text" id="questionText"></div>
+                </div>
+
+                <div class="answer-options" id="answerOptions">
+                    <!-- Options will be inserted here -->
+                </div>
+
+                <div class="answer-feedback" id="answerFeedback" style="display: none;">
+                    <!-- Feedback will be shown here -->
+                </div>
+            </div>
+
+            <div class="results-screen" id="resultsScreen" style="display: none;">
+                <div class="results-icon">🏆</div>
+                <h2>Quiz Completed!</h2>
+                <div class="final-score">
+                    <div class="score-label">Your Final Score</div>
+                    <div class="score-value" id="finalScore">0</div>
+                </div>
+                <div class="results-message" id="resultsMessage"></div>
+                <a asp-page="/Student/Join" class="btn btn-primary btn-lg">Join Another Quiz</a>
+            </div>
+        </div>
+
+        <!-- Cheating Warning Modal -->
+        <div class="cheating-modal" id="cheatingModal" style="display: none;">
+            <div class="cheating-content">
+                <div class="warning-icon">⚠️</div>
+                <h3>Warning: Tab Switch Detected</h3>
+                <p>Switching tabs during the quiz is not allowed.</p>
+                <p class="warning-count">Violations: <span id="violationCount">0</span>/3</p>
+                <p class="warning-text">3 violations will result in being flagged for cheating.</p>
+                <button class="btn btn-warning" onclick="closeWarning()">I Understand</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .quiz-body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .quiz-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .quiz-header {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .quiz-info h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+
+        .session-code-display {
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .quiz-stats {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 1rem 1.5rem;
+            background: var(--light);
+            border-radius: var(--radius);
+            border: 2px solid var(--gray-200);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .quiz-main {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 3rem;
+            box-shadow: var(--shadow-xl);
+            min-height: 500px;
+        }
+
+        /* Waiting Screen */
+        .waiting-screen {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .waiting-animation {
+            margin-bottom: 2rem;
+        }
+
+        .pulse-loader {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            border: 8px solid var(--primary-light);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .waiting-screen h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+
+        .waiting-screen p {
+            color: var(--gray-600);
+            font-size: 1.125rem;
+            margin-bottom: 2rem;
+        }
+
+        .participant-count {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Question Screen */
+        .question-timer {
+            margin-bottom: 2rem;
+        }
+
+        .timer-bar {
+            height: 12px;
+            background: var(--gray-200);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+            transition: width 1s linear;
+        }
+
+        .timer-text {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--gray-700);
+            font-family: 'Courier New', monospace;
+        }
+
+        .question-content {
+            margin-bottom: 2.5rem;
+        }
+
+        .question-number {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .question-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            line-height: 1.5;
+        }
+
+        .answer-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .option-btn {
+            padding: 2rem;
+            background: var(--light);
+            border: 3px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+            .option-btn:hover:not(:disabled) {
+                border-color: var(--primary);
+                background: white;
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-lg);
+            }
+
+            .option-btn:disabled {
+                cursor: not-allowed;
+                opacity: 0.6;
+            }
+
+            .option-btn.selected {
+                border-color: var(--primary);
+                background: linear-gradient(135deg, var(--primary-light), var(--primary));
+                color: white;
+            }
+
+            .option-btn.correct {
+                border-color: var(--success);
+                background: #d1fae5;
+                color: #065f46;
+            }
+
+            .option-btn.incorrect {
+                border-color: var(--danger);
+                background: #fee2e2;
+                color: #991b1b;
+            }
+
+        .answer-feedback {
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            text-align: center;
+            font-size: 1.125rem;
+            font-weight: 600;
+            animation: slideInUp 0.4s ease-out;
+        }
+
+        @@keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .answer-feedback.correct {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .answer-feedback.incorrect {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Results Screen */
+        .results-screen {
+            text-align: center;
+            padding: 3rem 2rem;
+        }
+
+        .results-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+            animation: bounceIn 0.6s ease-out;
+        }
+
+        .results-screen h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--gray-800);
+            margin-bottom: 2rem;
+        }
+
+        .final-score {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 3rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: 2rem;
+        }
+
+        .score-label {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .score-value {
+            font-size: 4rem;
+            font-weight: 900;
+        }
+
+        .results-message {
+            font-size: 1.25rem;
+            color: var(--gray-600);
+            margin-bottom: 2rem;
+        }
+
+        /* Cheating Modal */
+        .cheating-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .cheating-content {
+            background: white;
+            padding: 3rem;
+            border-radius: var(--radius-lg);
+            max-width: 500px;
+            text-align: center;
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        @@keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .warning-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .cheating-content h3 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--danger);
+            margin-bottom: 1rem;
+        }
+
+        .cheating-content p {
+            color: var(--gray-700);
+            margin-bottom: 1rem;
+        }
+
+        .warning-count {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--danger);
+        }
+
+        .warning-text {
+            font-size: 0.95rem;
+            color: var(--gray-600);
+            margin-bottom: 1.5rem;
+        }
+
+        @@media (max-width: 768px) {
+            .quiz-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .answer-options {
+                grid-template-columns: 1fr;
+            }
+
+            .quiz-stats {
+                width: 100%;
+                justify-content: space-around;
+            }
+        }
+    </style>
+
+    <script>
+        const sessionId = @Model.SessionId ?? 0;
+        const userId = @Model.UserId ?? 0;
+        // Fallback data for clients that join after the host started
+        const initialQuestions = @Html.Raw(initialQuestionsJson);
+        const sessionStatus = '@Model.Session?.Status.ToString()';
+        const currentQuestionId = @Html.Raw(currentQuestionIdRaw);
+
+        let connection;
+        let currentQuestion = null;
+        let timerInterval;
+        let questionStartTime;
+        let tabSwitchCount = 0;
+        let hasAnswered = false;
+
+        // Anti-cheating: Tab visibility detection
+        document.addEventListener('visibilitychange', async function() {
+            if (document.hidden && currentQuestion) {
+                tabSwitchCount++;
+                await reportTabSwitch();
+                showCheatingWarning();
+            }
+        });
+
+        // Prevent right-click (optional additional security)
+        document.addEventListener('contextmenu', e => e.preventDefault());
+
+        async function initializeConnection() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/quizHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("QuizStarted", () => {
+                document.getElementById('waitingScreen').style.display = 'none';
+            });
+
+            connection.on("BroadcastQuestion", (question, startTimeIso) => {
+                console.log('Received BroadcastQuestion', question, startTimeIso);
+                // Compute server-synced remaining time
+                const serverStart = new Date(startTimeIso);
+                const now = new Date();
+                const elapsed = Math.floor((now - serverStart) / 1000);
+                const remaining = Math.max(0, question.timeLimit - elapsed);
+                displayQuestion(question, remaining);
+            });
+
+            connection.on("QuestionEnded", (sessId, questionId) => {
+                console.log('Received QuestionEnded', sessId, questionId);
+                // Disable options if current question matches
+                if (currentQuestion && currentQuestion.id === questionId) {
+                    disableOptions();
+                }
+            });
+
+            connection.on("EndQuiz", () => {
+                showResults();
+            });
+
+            connection.on("AnswerResult", (isCorrect, points) => {
+                showAnswerFeedback(isCorrect, points);
+            });
+
+            connection.onreconnecting((error) => {
+                console.warn('SignalR reconnecting:', error);
+            });
+
+            connection.onreconnected(async (connectionId) => {
+                console.log('SignalR reconnected, rejoining session group');
+                try {
+                    await connection.invoke('JoinSession', sessionId, userId);
+                    console.log('Re-joined session via JoinSession');
+                } catch (err) {
+                    console.error('Error rejoining session after reconnect:', err);
+                }
+            });
+
+            connection.onclose(error => {
+                console.warn('SignalR connection closed:', error);
+            });
+
+            try {
+                await connection.start();
+                console.log("SignalR Connected");
+                try {
+                    await connection.invoke("JoinSession", sessionId, userId);
+                    console.log('JoinSession invoked');
+                } catch (joinErr) {
+                    console.error('JoinSession error:', joinErr);
+                }
+
+                // If the session was already started on the server, show current question immediately as fallback
+                if (sessionStatus === 'InProgress') {
+                    console.log('Session already InProgress on load; attempting fallback display');
+                    if (currentQuestionId !== null) {
+                        const q = initialQuestions.find(x => x.id === currentQuestionId);
+                        if (q) {
+                            displayQuestion(q);
+                        } else {
+                            console.warn('Current question id set but not found in initialQuestions:', currentQuestionId);
+                        }
+                    } else {
+                        // No current question id yet; just hide waiting screen to reflect started state
+                        document.getElementById('waitingScreen').style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error("SignalR Connection Error:", err);
+            }
+        }
+
+        function displayQuestion(question, initialRemainingSeconds) {
+            currentQuestion = question;
+            hasAnswered = false;
+            questionStartTime = Date.now();
+
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('questionScreen').style.display = 'block';
+            document.getElementById('resultsScreen').style.display = 'none';
+            document.getElementById('answerFeedback').style.display = 'none';
+
+            document.getElementById('questionNumber').textContent = `Question ${question.orderIndex + 1}`;
+            document.getElementById('questionText').textContent = question.text;
+
+            const optionsHtml = `
+                <button class="option-btn" onclick="selectAnswer('A')">
+                    <strong>A:</strong> ${question.optionA}
+                </button>
+                <button class="option-btn" onclick="selectAnswer('B')">
+                    <strong>B:</strong> ${question.optionB}
+                </button>
+                <button class="option-btn" onclick="selectAnswer('C')">
+                    <strong>C:</strong> ${question.optionC}
+                </button>
+                <button class="option-btn" onclick="selectAnswer('D')">
+                    <strong>D:</strong> ${question.optionD}
+                </button>
+            `;
+            document.getElementById('answerOptions').innerHTML = optionsHtml;
+
+            // If initialRemainingSeconds provided, use it; otherwise use full time limit
+            const remaining = typeof initialRemainingSeconds === 'number' ? initialRemainingSeconds : question.timeLimit;
+            startTimer(remaining);
+        }
+
+        function startTimer(seconds) {
+            clearInterval(timerInterval);
+            let timeLeft = seconds;
+            const timerFill = document.getElementById('timerFill');
+            const timerText = document.getElementById('timerText');
+
+            timerFill.style.width = '100%';
+            timerText.textContent = timeLeft + 's';
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const percentage = (timeLeft / seconds) * 100;
+                timerFill.style.width = percentage + '%';
+                timerText.textContent = timeLeft + 's';
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    disableOptions();
+                    if (!hasAnswered) {
+                        showAnswerFeedback(false, 0);
+                    }
+                }
+            }, 1000);
+        }
+
+        async function selectAnswer(answer) {
+            if (hasAnswered) return;
+            hasAnswered = true;
+
+            // Visual feedback
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                if (btn.textContent.startsWith(answer)) {
+                    btn.classList.add('selected');
+                }
+            });
+
+            // Submit answer
+            try {
+                await connection.invoke("SubmitAnswer", sessionId, userId, currentQuestion.id, answer);
+            } catch (error) {
+                console.error('Error submitting answer:', error);
+            }
+        }
+
+        function showAnswerFeedback(isCorrect, points) {
+            const feedback = document.getElementById('answerFeedback');
+            feedback.style.display = 'block';
+            feedback.className = 'answer-feedback ' + (isCorrect ? 'correct' : 'incorrect');
+
+            if (isCorrect) {
+                feedback.innerHTML = `✅ Correct! +${points} points`;
+                updateScore(points);
+            } else {
+                feedback.innerHTML = `❌ Incorrect. The correct answer was ${currentQuestion.correctAnswer}`;
+            }
+
+            clearInterval(timerInterval);
+        }
+
+        function updateScore(points) {
+            const scoreEl = document.getElementById('userScore');
+            const currentScore = parseInt(scoreEl.textContent);
+            scoreEl.textContent = currentScore + points;
+        }
+
+        function disableOptions() {
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(btn => btn.disabled = true);
+        }
+
+        async function reportTabSwitch() {
+            try {
+                await connection.invoke("ReportTabSwitch", sessionId, userId);
+            } catch (error) {
+                console.error('Error reporting tab switch:', error);
+            }
+        }
+
+        function showCheatingWarning() {
+            document.getElementById('violationCount').textContent = tabSwitchCount;
+            document.getElementById('cheatingModal').style.display = 'flex';
+        }
+
+        function closeWarning() {
+            document.getElementById('cheatingModal').style.display = 'none';
+        }
+
+        async function showResults() {
+            clearInterval(timerInterval);
+
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('questionScreen').style.display = 'none';
+            document.getElementById('resultsScreen').style.display = 'block';
+
+            const finalScore = parseInt(document.getElementById('userScore').textContent);
+            document.getElementById('finalScore').textContent = finalScore;
+
+            // Get message based on score
+            let message = '';
+            if (finalScore >= 80) {
+                message = '🌟 Outstanding! You\'re a quiz master!';
+            } else if (finalScore >= 60) {
+                message = '👏 Great job! Well done!';
+            } else if (finalScore >= 40) {
+                message = '👍 Good effort! Keep practicing!';
+            } else {
+                message = '💪 Don\'t give up! Try again!';
+            }
+            document.getElementById('resultsMessage').textContent = message;
+
+        }
+
+        // start the connection when page loads
+        initializeConnection();
+    </script>
+</body>
+</html>

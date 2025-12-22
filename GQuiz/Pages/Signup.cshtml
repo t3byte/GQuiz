@@ -1,0 +1,55 @@
+﻿@page
+@model GQuiz.Pages.SignupModel
+@{
+    ViewData["Title"] = "Sign Up";
+}
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h1>Create Account</h1>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-error">@Model.ErrorMessage</div>
+        }
+
+        <form method="post">
+            <div class="form-group">
+                <label asp-for="Input.Username"></label>
+                <input asp-for="Input.Username" class="form-control" placeholder="Enter username" />
+                <span asp-validation-for="Input.Username" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Input.Email"></label>
+                <input asp-for="Input.Email" class="form-control" placeholder="Enter email" />
+                <span asp-validation-for="Input.Email" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Input.Password"></label>
+                <input asp-for="Input.Password" class="form-control" type="password" placeholder="Enter password" />
+                <span asp-validation-for="Input.Password" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Input.ConfirmPassword"></label>
+                <input asp-for="Input.ConfirmPassword" class="form-control" type="password" placeholder="Confirm password" />
+                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input asp-for="Input.IsHost" type="checkbox" />
+                    <span>Register as Quiz Host/Teacher</span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a asp-page="/Login">Login here</a>
+        </div>
+    </div>
+</div>

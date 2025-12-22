@@ -1,0 +1,156 @@
+﻿@page
+@model GQuiz.Pages.Host.CreateQuizModel
+@{
+    ViewData["Title"] = "Create Quiz";
+}
+
+<div class="create-quiz-container">
+    <h1>Create New Quiz</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-error">@Model.ErrorMessage</div>
+    }
+
+    <form method="post">
+        <div class="form-section">
+            <h2>Quiz Details</h2>
+
+            <div class="form-group">
+                <label asp-for="Input.Title"></label>
+                <input asp-for="Input.Title" class="form-control" placeholder="e.g., Mathematics Quiz" />
+                <span asp-validation-for="Input.Title" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Input.Description"></label>
+                <textarea asp-for="Input.Description" class="form-control" rows="3" placeholder="Brief description of the quiz"></textarea>
+                <span asp-validation-for="Input.Description" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Questions</h2>
+            <p class="text-muted">Add at least one question to your quiz</p>
+
+            <div id="questions-container">
+                <!-- Questions will be added here dynamically -->
+            </div>
+
+            <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Add Question</button>
+        </div>
+
+        <input type="hidden" asp-for="Input.QuestionsJson" id="questionsJson" />
+
+        <div class="form-actions">
+            <a asp-page="/Host/Dashboard" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create Quiz</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        let questionCount = 0;
+        const questions = [];
+
+        function addQuestion() {
+            questionCount++;
+            const questionHtml = `
+                <div class="question-card" data-question-id="${questionCount}">
+                    <div class="question-header">
+                        <h3>Question ${questionCount}</h3>
+                        <button type="button" class="btn-remove" onclick="removeQuestion(${questionCount})">×</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Question Text</label>
+                        <input type="text" class="form-control question-text" placeholder="Enter your question" required />
+                    </div>
+
+                    <div class="options-grid">
+                        <div class="form-group">
+                            <label>Option A</label>
+                            <input type="text" class="form-control option-a" placeholder="Option A" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Option B</label>
+                            <input type="text" class="form-control option-b" placeholder="Option B" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Option C</label>
+                            <input type="text" class="form-control option-c" placeholder="Option C" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Option D</label>
+                            <input type="text" class="form-control option-d" placeholder="Option D" required />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Correct Answer</label>
+                            <select class="form-control correct-answer" required>
+                                <option value="">Select correct answer</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Limit (seconds)</label>
+                            <input type="number" class="form-control time-limit" value="30" min="10" max="300" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Points</label>
+                            <input type="number" class="form-control points" value="10" min="1" max="100" required />
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('questions-container').insertAdjacentHTML('beforeend', questionHtml);
+        }
+
+        function removeQuestion(id) {
+            const questionCard = document.querySelector(`[data-question-id="${id}"]`);
+            if (questionCard) {
+                questionCard.remove();
+            }
+        }
+
+        function collectQuestions() {
+            const questionCards = document.querySelectorAll('.question-card');
+            const questions = [];
+
+            questionCards.forEach((card, index) => {
+                questions.push({
+                    Text: card.querySelector('.question-text').value,
+                    OptionA: card.querySelector('.option-a').value,
+                    OptionB: card.querySelector('.option-b').value,
+                    OptionC: card.querySelector('.option-c').value,
+                    OptionD: card.querySelector('.option-d').value,
+                    CorrectAnswer: card.querySelector('.correct-answer').value,
+                    TimeLimit: parseInt(card.querySelector('.time-limit').value),
+                    Points: parseInt(card.querySelector('.points').value),
+                    OrderIndex: index
+                });
+            });
+
+            return questions;
+        }
+
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const questions = collectQuestions();
+            if (questions.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one question');
+                return;
+            }
+            document.getElementById('questionsJson').value = JSON.stringify(questions);
+        });
+
+        // Add first question on load
+        addQuestion();
+    </script>
+}

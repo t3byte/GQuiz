@@ -1,0 +1,690 @@
+﻿@page
+@model GQuiz.Pages.Host.ControlSessionModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    ViewData["Title"] = "Control Session";
+}
+
+<div class="control-panel">
+    <input type="hidden" name="__RequestVerificationToken" value="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />
+    <div class="control-header">
+        <div class="session-info-bar">
+            <h1>🎮 Quiz Control Panel</h1>
+            <div class="session-badge">
+                <span class="badge-label">Session Code:</span>
+                <span class="badge-code" id="sessionCode">@Model.Session?.SessionCode</span>
+            </div>
+        </div>
+        <div class="quiz-title">@Model.Session?.Quiz.Title</div>
+    </div>
+
+    <div class="control-grid">
+        <!-- LEFT: Question Control -->
+        <div class="control-section">
+            <div class="section-card">
+                <h2>📝 Question Control</h2>
+
+                <div class="current-question" id="currentQuestionDisplay">
+                    <div class="question-status">Waiting to start...</div>
+                </div>
+
+                <div class="question-navigation">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0 / @Model.Session?.Quiz.Questions.Count</div>
+                </div>
+
+                <div class="control-buttons">
+                    <button class="btn btn-success btn-lg" id="startBtn" onclick="startQuiz()">
+                        ▶️ Start Quiz
+                    </button>
+                    <button class="btn btn-primary btn-lg" id="nextBtn" onclick="nextQuestion()" style="display: none;">
+                        ⏭️ Next Question
+                    </button>
+                    <button class="btn btn-danger btn-lg" id="endBtn" onclick="endQuiz()" style="display: none;">
+                        ⏹️ End Quiz
+                    </button>
+                </div>
+
+                <div class="timer-display" id="timerDisplay" style="display: none;">
+                    <div class="timer-label">Time Remaining</div>
+                    <div class="timer-value" id="timerValue">30</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Participants & Cheating Monitor -->
+        <div class="control-section">
+            <div class="section-card">
+                <h2>👥 Participants (<span id="participantCount">0</span>)</h2>
+                <div class="participants-list" id="participantsList">
+                    <div class="empty-participants">Waiting for participants...</div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2>🚨 Cheating Monitor</h2>
+                <div class="cheating-alerts" id="cheatingAlerts">
+                    <div class="no-alerts">No violations detected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM: Live Leaderboard -->
+    <div class="leaderboard-section">
+        <div class="section-card">
+            <h2>🏆 Live Leaderboard</h2>
+            <div class="leaderboard-table" id="leaderboard">
+                <div class="empty-leaderboard">Start the quiz to see scores</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .control-panel {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .control-header {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .session-info-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+        .session-info-bar h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--gray-800);
+        }
+
+    .session-badge {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .badge-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    .badge-code {
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: 0.25rem;
+        font-family: 'Courier New', monospace;
+    }
+
+    .quiz-title {
+        font-size: 1.25rem;
+        color: var(--gray-600);
+        font-weight: 600;
+    }
+
+    .control-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .control-section {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+        .section-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .current-question {
+        background: var(--light);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .question-status {
+        text-align: center;
+        color: var(--gray-500);
+        font-size: 1.125rem;
+    }
+
+    .question-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 1rem;
+    }
+
+    .question-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .option-item {
+        background: white;
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 1rem;
+        font-weight: 500;
+    }
+
+        .option-item.correct {
+            background: #d1fae5;
+            border-color: var(--success);
+            color: #065f46;
+        }
+
+    .question-navigation {
+        margin-bottom: 1.5rem;
+    }
+
+    .progress-bar {
+        background: var(--gray-200);
+        height: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-fill {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        height: 100%;
+        transition: width 0.5s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        color: var(--gray-600);
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .control-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+        .control-buttons .btn {
+            flex: 1;
+            min-width: 150px;
+        }
+
+    .timer-display {
+        margin-top: 2rem;
+        background: linear-gradient(135deg, #f59e0b, #dc2626);
+        color: white;
+        padding: 2rem;
+        border-radius: var(--radius-lg);
+        text-align: center;
+    }
+
+    .timer-label {
+        font-size: 1rem;
+        opacity: 0.9;
+        margin-bottom: 0.5rem;
+    }
+
+    .timer-value {
+        font-size: 4rem;
+        font-weight: 900;
+        font-family: 'Courier New', monospace;
+    }
+
+    .participants-list, .cheating-alerts {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .participant-item {
+        background: var(--light);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .participant-name {
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .participant-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-flagged {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .empty-participants, .empty-leaderboard, .no-alerts {
+        text-align: center;
+        color: var(--gray-400);
+        padding: 2rem;
+        font-style: italic;
+    }
+
+    .alert-item {
+        background: #fee2e2;
+        border-left: 4px solid var(--danger);
+        padding: 1rem;
+        border-radius: var(--radius);
+        margin-bottom: 0.75rem;
+    }
+
+    .alert-user {
+        font-weight: 700;
+        color: var(--danger);
+    }
+
+    .alert-message {
+        color: #991b1b;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .leaderboard-section {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .leaderboard-table {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .leaderboard-row {
+        background: var(--light);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        transition: var(--transition);
+    }
+
+        .leaderboard-row:hover {
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .leaderboard-row.rank-1 {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-color: #f59e0b;
+        }
+
+        .leaderboard-row.rank-2 {
+            background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+        }
+
+        .leaderboard-row.rank-3 {
+            background: linear-gradient(135deg, #fed7aa, #fdba74);
+        }
+
+    .rank-number {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--gray-700);
+        min-width: 40px;
+    }
+
+    .rank-1 .rank-number {
+        color: #f59e0b;
+    }
+
+    .rank-2 .rank-number {
+        color: #6b7280;
+    }
+
+    .rank-3 .rank-number {
+        color: #ea580c;
+    }
+
+    .leaderboard-name {
+        flex: 1;
+        font-weight: 600;
+        font-size: 1.125rem;
+        color: var(--gray-800);
+    }
+
+    .leaderboard-score {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    @@media (max-width: 1024px) {
+        .control-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        const sessionId = @Model.SessionId;
+        // Serialize a projection of questions to avoid navigation cycles (exclude the Quiz reference)
+        const questions = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Session?.Quiz.Questions
+                .OrderBy(q => q.OrderIndex)
+                .Select(q => (object)new {
+                    id = q.Id,
+                    text = q.Text,
+                    optionA = q.OptionA,
+                    optionB = q.OptionB,
+                    optionC = q.OptionC,
+                    optionD = q.OptionD,
+                    correctAnswer = q.CorrectAnswer,
+                    timeLimit = q.TimeLimit,
+                    points = q.Points,
+                    orderIndex = q.OrderIndex
+                })
+                .ToList() ?? new List<object>()
+        ));
+        console.log('Host serialized questions:', questions);
+        let connection;
+        let currentQuestionIndex = -1;
+        let timerInterval;
+
+        // Initialize SignalR connection
+        async function initializeConnection() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/quizHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ParticipantJoined", (userId) => {
+                loadParticipants();
+            });
+
+            connection.on("TabSwitchDetected", (userId, count) => {
+                addCheatingAlert(userId, count);
+            });
+
+            connection.on("AnswerSubmitted", () => {
+                updateLeaderboard();
+            });
+
+            connection.onreconnecting((err) => {
+                console.warn('Host SignalR reconnecting', err);
+            });
+            connection.onreconnected((id) => {
+                console.log('Host SignalR reconnected, connection id', id);
+            });
+            connection.onclose((err) => {
+                console.warn('Host SignalR closed', err);
+            });
+
+            try {
+                await connection.start();
+                console.log("SignalR Connected (host)");
+            } catch (err) {
+                console.error("SignalR Connection Error (host):", err);
+                throw err;
+            }
+        }
+
+        async function startQuiz() {
+            try {
+                const response = await fetch(`/Host/ControlSession?handler=Start&sessionId=${sessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                    }
+                });
+
+                if (response.ok) {
+                    // Ensure SignalR connection is ready before invoking hub methods
+                    try {
+                        if (!connection) {
+                            await initializeConnection();
+                        }
+                        // Use HubConnectionState enum for correct check
+                        if (connection && connection.state !== signalR.HubConnectionState.Connected) {
+                            await connection.start();
+                        }
+                        // Notify clients via hub as well (fallback)
+                        console.log('Invoking HostStartQuiz via hub for session', sessionId);
+                        await connection.invoke("HostStartQuiz", sessionId);
+                        console.log('HostStartQuiz invoked');
+                    } catch (hubErr) {
+                        console.warn('Hub start/broadcast warning:', hubErr);
+                    }
+
+                    document.getElementById('startBtn').style.display = 'none';
+                    document.getElementById('nextBtn').style.display = 'inline-block';
+                    document.getElementById('endBtn').style.display = 'inline-block';
+                    nextQuestion();
+                } else {
+                    console.error('Start response not OK', response.status, await response.text());
+                }
+            } catch (error) {
+                console.error('Error starting quiz:', error);
+            }
+        }
+
+        async function nextQuestion() {
+            currentQuestionIndex++;
+
+            if (currentQuestionIndex >= questions.length) {
+                await endQuiz();
+                return;
+            }
+
+            const question = questions[currentQuestionIndex];
+
+            // Update UI
+            displayQuestion(question);
+            updateProgress();
+            startTimer(question.timeLimit);
+
+            // Broadcast to students
+            try {
+                console.log('Broadcasting question to students via server handler:', question);
+                await fetch(`/Host/ControlSession?handler=BroadcastQuestion&sessionId=${sessionId}&questionId=${question.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                    }
+                });
+
+                // Do not invoke hub.BroadcastQuestion from client; server will broadcast with authoritative start time
+                // await connection.invoke("BroadcastQuestion", sessionId, question);
+                console.log('Requested server to broadcast question');
+            } catch (error) {
+                console.error('Error broadcasting question:', error);
+            }
+        }
+
+        function displayQuestion(question) {
+            const display = document.getElementById('currentQuestionDisplay');
+            display.innerHTML = `
+                <div class="question-text">Q${currentQuestionIndex + 1}: ${question.text}</div>
+                <div class="question-options">
+                    <div class="option-item ${question.correctAnswer === 'A' ? 'correct' : ''}">A: ${question.optionA}</div>
+                    <div class="option-item ${question.correctAnswer === 'B' ? 'correct' : ''}">B: ${question.optionB}</div>
+                    <div class="option-item ${question.correctAnswer === 'C' ? 'correct' : ''}">C: ${question.optionC}</div>
+                    <div class="option-item ${question.correctAnswer === 'D' ? 'correct' : ''}">D: ${question.optionD}</div>
+                </div>
+                <div style="margin-top: 1rem; text-align: center; color: var(--gray-600);">
+                    <strong>Points:</strong> ${question.points} | <strong>Time:</strong> ${question.timeLimit}s
+                </div>
+            `;
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressText').textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
+        }
+
+        function startTimer(seconds) {
+            clearInterval(timerInterval);
+            document.getElementById('timerDisplay').style.display = 'block';
+            let timeLeft = seconds;
+
+            document.getElementById('timerValue').textContent = timeLeft;
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerValue').textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    setTimeout(() => {
+                        updateLeaderboard();
+                    }, 1000);
+                }
+            }, 1000);
+        }
+
+        async function endQuiz() {
+            clearInterval(timerInterval);
+
+            try {
+                await fetch(`/Host/ControlSession?handler=End&sessionId=${sessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                    }
+                });
+
+                await connection.invoke("EndQuiz", sessionId);
+
+                alert('Quiz Ended! Redirecting to results...');
+                window.location.href = `/Host/SessionResults?sessionId=${sessionId}`;
+            } catch (error) {
+                console.error('Error ending quiz:', error);
+            }
+        }
+
+        async function loadParticipants() {
+            try {
+                const response = await fetch(`/Host/ControlSession?handler=Participants&sessionId=${sessionId}`);
+                const participants = await response.json();
+
+                const list = document.getElementById('participantsList');
+                document.getElementById('participantCount').textContent = participants.length;
+
+                if (participants.length === 0) {
+                    list.innerHTML = '<div class="empty-participants">Waiting for participants...</div>';
+                } else {
+                    list.innerHTML = participants.map(p => `
+                        <div class="participant-item">
+                            <span class="participant-name">${p.username}</span>
+                            <span class="participant-status ${p.isFlagged ? 'status-flagged' : 'status-active'}">
+                                ${p.isFlagged ? '⚠️ Flagged' : '✓ Active'}
+                            </span>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading participants:', error);
+            }
+        }
+
+        async function updateLeaderboard() {
+            try {
+                const response = await fetch(`/Host/ControlSession?handler=Leaderboard&sessionId=${sessionId}`);
+                const leaderboard = await response.json();
+
+                const container = document.getElementById('leaderboard');
+
+                if (leaderboard.length === 0) {
+                    container.innerHTML = '<div class="empty-leaderboard">No scores yet</div>';
+                } else {
+                    container.innerHTML = leaderboard.map((entry, index) => `
+                        <div class="leaderboard-row rank-${index + 1}">
+                            <div class="rank-number">#${index + 1}</div>
+                            <div class="leaderboard-name">${entry.username}</div>
+                            <div class="leaderboard-score">${entry.score} pts</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error updating leaderboard:', error);
+            }
+        }
+
+        function addCheatingAlert(userId, count) {
+            const alertsContainer = document.getElementById('cheatingAlerts');
+            const noAlerts = alertsContainer.querySelector('.no-alerts');
+            if (noAlerts) noAlerts.remove();
+
+            const alertHtml = `
+                <div class="alert-item">
+                    <div class="alert-user">User ID: ${userId}</div>
+                    <div class="alert-message">Tab switch detected (${count} times)</div>
+                </div>
+            `;
+            alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeConnection();
+            loadParticipants();
+
+            // Poll participants every 5 seconds
+            setInterval(loadParticipants, 5000);
+        });
+    </script>
+}

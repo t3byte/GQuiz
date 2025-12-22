@@ -1,0 +1,56 @@
+﻿@page
+@model IndexModel
+@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">📝 GQuiz</h1>
+        <p class="hero-subtitle">Real-time Distributed Quiz Platform</p>
+        <p class="hero-description">
+            Experience interactive quizzes with live leaderboards, anti-cheating detection,
+            and parallel answer evaluation powered by distributed computing.
+        </p>
+
+        <div class="hero-actions">
+            @if (HttpContext.Session.GetInt32("UserId") == null)
+            {
+                <a asp-page="/Signup" class="btn btn-primary btn-lg">Get Started</a>
+                <a asp-page="/Login" class="btn btn-secondary btn-lg">Login</a>
+            }
+            else if (HttpContext.Session.GetString("IsHost") == "true")
+            {
+                <a asp-page="/Host/Dashboard" class="btn btn-primary btn-lg">Go to Dashboard</a>
+            }
+            else
+            {
+                <a asp-page="/Student/Join" class="btn btn-primary btn-lg">Join a Quiz</a>
+            }
+        </div>
+    </div>
+
+    <div class="features">
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Real-time Communication</h3>
+            <p>SignalR powered instant updates</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Anti-Cheating</h3>
+            <p>Tab-switch detection system</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🏆</div>
+            <h3>Live Leaderboard</h3>
+            <p>Track scores in real-time</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">⚙️</div>
+            <h3>Parallel Processing</h3>
+            <p>Concurrent answer evaluation</p>
+        </div>
+    </div>
+</div>

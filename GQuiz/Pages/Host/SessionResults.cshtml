@@ -1,0 +1,345 @@
+﻿@page
+@model GQuiz.Pages.Host.SessionResultsModel
+@{
+    ViewData["Title"] = "Session Results";
+}
+
+<div class="results-container">
+    <div class="results-header">
+        <h1>📊 Session Results</h1>
+        <div class="session-info">
+            <h2>@Model.Session?.Quiz.Title</h2>
+            <div class="session-meta">
+                <span>📅 @Model.Session?.EndedAt?.ToString("MMM dd, yyyy HH:mm")</span>
+                <span>👥 @Model.Participants.Count participants</span>
+                <span>📝 @Model.Session?.Quiz.Questions.Count questions</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="results-grid">
+        <div class="results-section">
+            <div class="section-card">
+                <h2>🏆 Final Leaderboard</h2>
+                <div class="leaderboard-list">
+                    @foreach (var (participant, index) in Model.Participants.Select((p, i) => (p, i)))
+                    {
+                        <div class="leaderboard-item rank-@(index + 1)">
+                            <div class="rank-badge">#@(index + 1)</div>
+                            <div class="participant-info">
+                                <div class="participant-name">@participant.User.Username</div>
+                                <div class="participant-details">
+                                    Score: @participant.TotalScore pts
+                                    @if (participant.IsFlagged)
+                                    {
+                                        <span class="flagged-badge">⚠️ Flagged</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="participant-score">@participant.TotalScore</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <div class="section-card">
+                <h2>📈 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-value">@Model.AverageScore.ToString("F1")</div>
+                            <div class="stat-label">Average Score</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">🏅</div>
+                        <div class="stat-content">
+                            <div class="stat-value">@Model.HighestScore</div>
+                            <div class="stat-label">Highest Score</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-value">@Model.FlaggedCount</div>
+                            <div class="stat-label">Flagged Users</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-value">@Model.CompletionRate.ToString("F0")%</div>
+                            <div class="stat-label">Completion Rate</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.FlaggedParticipants.Any())
+            {
+                <div class="section-card">
+                    <h2>🚨 Flagged Participants</h2>
+                    <div class="flagged-list">
+                        @foreach (var participant in Model.FlaggedParticipants)
+                        {
+                            <div class="flagged-item">
+                                <div class="flagged-user">
+                                    <strong>@participant.User.Username</strong>
+                                </div>
+                                <div class="flagged-reason">
+                                    Tab switches: @participant.TabSwitchCount
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="results-actions">
+        <a asp-page="/Host/Dashboard" class="btn btn-primary">Back to Dashboard</a>
+        <button onclick="window.print()" class="btn btn-secondary">🖨️ Print Results</button>
+    </div>
+</div>
+
+<style>
+    .results-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .results-header {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-xl);
+    }
+
+        .results-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--gray-800);
+            margin-bottom: 1rem;
+        }
+
+    .session-info h2 {
+        font-size: 1.5rem;
+        color: var(--primary);
+        margin-bottom: 1rem;
+    }
+
+    .session-meta {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        color: var(--gray-600);
+        font-size: 0.95rem;
+    }
+
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .results-section {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+
+        .section-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 1.5rem;
+        }
+
+    .leaderboard-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .leaderboard-item {
+        background: var(--light);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        transition: var(--transition);
+    }
+
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+            box-shadow: var(--shadow);
+        }
+
+        .leaderboard-item.rank-1 {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-color: #f59e0b;
+        }
+
+        .leaderboard-item.rank-2 {
+            background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+            border-color: #9ca3af;
+        }
+
+        .leaderboard-item.rank-3 {
+            background: linear-gradient(135deg, #fed7aa, #fdba74);
+            border-color: #fb923c;
+        }
+
+    .rank-badge {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--gray-700);
+        min-width: 50px;
+        text-align: center;
+    }
+
+    .rank-1 .rank-badge {
+        color: #f59e0b;
+    }
+
+    .rank-2 .rank-badge {
+        color: #6b7280;
+    }
+
+    .rank-3 .rank-badge {
+        color: #ea580c;
+    }
+
+    .participant-info {
+        flex: 1;
+    }
+
+    .participant-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        margin-bottom: 0.25rem;
+    }
+
+    .participant-details {
+        color: var(--gray-600);
+        font-size: 0.95rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .flagged-badge {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius);
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .participant-score {
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--primary);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .stat-item {
+        background: var(--light);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+    }
+
+    .stat-content {
+        flex: 1;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+
+    .flagged-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .flagged-item {
+        background: #fee2e2;
+        border-left: 4px solid var(--danger);
+        padding: 1rem;
+        border-radius: var(--radius);
+    }
+
+    .flagged-user {
+        color: #991b1b;
+        margin-bottom: 0.25rem;
+    }
+
+    .flagged-reason {
+        color: #7f1d1d;
+        font-size: 0.875rem;
+    }
+
+    .results-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+@@media (max-width: 1024px) {
+        .results-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+@@media print {
+        body {
+            background: white;
+        }
+
+        .navbar, .results-actions {
+            display: none;
+        }
+    }

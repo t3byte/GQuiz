@@ -1,0 +1,232 @@
+﻿@page
+@model GQuiz.Pages.Host.StartSessionModel
+@{
+    ViewData["Title"] = "Start Quiz Session";
+}
+
+<div class="start-session-container">
+    <div class="session-card">
+        <div class="session-header">
+            <h1>🚀 Start Quiz Session</h1>
+            <div class="quiz-info">
+                <h2>@Model.Quiz?.Title</h2>
+                <p>@Model.Quiz?.Description</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-error">@Model.ErrorMessage</div>
+        }
+
+        @if (Model.SessionCode != null)
+        {
+            <div class="session-created">
+                <div class="success-icon">✅</div>
+                <h2>Session Created Successfully!</h2>
+
+                <div class="session-code-display">
+                    <label>Session Code</label>
+                    <div class="code-box">@Model.SessionCode</div>
+                    <p class="code-hint">Share this code with participants</p>
+                </div>
+
+                <div class="session-stats">
+                    <div class="stat-box">
+                        <div class="stat-number">@Model.Quiz?.Questions.Count</div>
+                        <div class="stat-label">Questions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Participants</div>
+                    </div>
+                </div>
+
+                <div class="session-actions">
+                    <a asp-page="/Host/ControlSession" asp-route-sessionId="@Model.SessionId" class="btn btn-primary btn-lg">
+                        🎮 Start Quiz Control
+                    </a>
+                    <a asp-page="/Host/Dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <form method="post">
+                <input type="hidden" name="quizId" value="@Model.QuizId" />
+
+                <div class="quiz-preview">
+                    <h3>📋 Quiz Overview</h3>
+                    <ul class="quiz-details">
+                        <li><strong>Total Questions:</strong> @Model.Quiz?.Questions.Count</li>
+                        <li><strong>Total Points:</strong> @Model.Quiz?.Questions.Sum(q => q.Points)</li>
+                        <li><strong>Estimated Time:</strong> @Model.Quiz?.Questions.Sum(q => q.TimeLimit) seconds</li>
+                    </ul>
+                </div>
+
+                <div class="start-warning">
+                    <p>⚠️ Once you start the session, you cannot edit the quiz. Make sure everything is ready!</p>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg btn-block">
+                    🚀 Create Session
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+<style>
+    .start-session-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .session-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        box-shadow: var(--shadow-xl);
+        animation: fadeInUp 0.5s ease-out;
+    }
+
+    .session-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .session-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--gray-800);
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-info h2 {
+        font-size: 1.5rem;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .quiz-info p {
+        color: var(--gray-600);
+    }
+
+    .session-created {
+        text-align: center;
+    }
+
+    .success-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        animation: bounceIn 0.6s ease-out;
+    }
+
+    @@keyframes bounceIn {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    .session-code-display {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        padding: 2rem;
+        border-radius: var(--radius-lg);
+        margin: 2rem 0;
+        color: white;
+    }
+
+    .session-code-display label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .code-box {
+        font-size: 3rem;
+        font-weight: 900;
+        letter-spacing: 0.5rem;
+        margin: 1rem 0;
+        font-family: 'Courier New', monospace;
+    }
+
+    .code-hint {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .session-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .stat-box {
+        background: var(--light);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        border: 2px solid var(--gray-200);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.95rem;
+        margin-top: 0.5rem;
+    }
+
+    .session-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .quiz-preview {
+        background: var(--light);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-preview h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        margin-bottom: 1rem;
+    }
+
+    .quiz-details {
+        list-style: none;
+    }
+
+    .quiz-details li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--gray-200);
+        color: var(--gray-700);
+    }
+
+    .quiz-details li:last-child {
+        border-bottom: none;
+    }
+
+    .start-warning {
+        background: #fef3c7;
+        border-left: 4px solid var(--warning);
+        padding: 1rem;
+        border-radius: var(--radius);
+        margin-bottom: 1.5rem;
+    }
+
+    .start-warning p {
+        color: #92400e;
+        margin: 0;
+    }
+</style>
