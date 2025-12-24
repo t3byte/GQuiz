@@ -421,6 +421,7 @@
 @section Scripts {
     <script>
         const sessionId = @Model.SessionId;
+        const isAutomated = @Model.IsAutomated.ToString().ToLower();
         // Serialize a projection of questions to avoid navigation cycles (exclude the Quiz reference)
         const questions = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.Session?.Quiz.Questions
@@ -439,7 +440,7 @@
                 })
                 .ToList() ?? new List<object>()
         ));
-        console.log('Host serialized questions:', questions);
+        console.log('Host serialized questions:', questions, 'isAutomated=', isAutomated);
         let connection;
         let currentQuestionIndex = -1;
         let timerInterval;
@@ -457,6 +458,11 @@
 
             connection.on("TabSwitchDetected", (userId, count) => {
                 addCheatingAlert(userId, count);
+            });
+
+            connection.on("ParticipantKicked", (userId, count) => {
+                // Show kicked alert with username lookup
+                addCheatingAlert(userId, count, 'Kicked for excessive tab switching');
             });
 
             connection.on("AnswerSubmitted", () => {
@@ -596,9 +602,16 @@
 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
-                    setTimeout(() => {
-                        updateLeaderboard();
-                    }, 1000);
+                    if (isAutomated) {
+                        // In automated mode advance to next question automatically
+                        setTimeout(() => {
+                            nextQuestion();
+                        }, 1000);
+                    } else {
+                        setTimeout(() => {
+                            updateLeaderboard();
+                        }, 1000);
+                    }
                 }
             }, 1000);
         }
@@ -671,7 +684,7 @@
             }
         }
 
-        async function addCheatingAlert(userId, count) {
+        async function addCheatingAlert(userId, count, extraMessage = null) {
             const alertsContainer = document.getElementById('cheatingAlerts');
             const noAlerts = alertsContainer.querySelector('.no-alerts');
             if (noAlerts) noAlerts.remove();
@@ -699,10 +712,11 @@
             }
 
             const displayName = username ? username : `User ID: ${userId}`;
+            const msg = extraMessage ? `${extraMessage} (${count} violations)` : `Tab switch detected (${count} times)`;
             const alertHtml = `
                 <div class="alert-item">
                     <div class="alert-user">${displayName}</div>
-                    <div class="alert-message">Tab switch detected (${count} times)</div>
+                    <div class="alert-message">${msg}</div>
                 </div>
             `;
             alertsContainer.insertAdjacentHTML('afterbegin', alertHtml);
@@ -715,6 +729,19 @@
 
             // Poll participants every 5 seconds
             setInterval(loadParticipants, 5000);
+
+            // If automated mode, auto-start the quiz
+            if (isAutomated) {
+                // hide manual controls for clarity
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('nextBtn').style.display = 'none';
+                document.getElementById('endBtn').style.display = 'none';
+
+                // start after short delay to allow SignalR join
+                setTimeout(() => {
+                    startQuiz();
+                }, 1000);
+            }
         });
     </script>
 }

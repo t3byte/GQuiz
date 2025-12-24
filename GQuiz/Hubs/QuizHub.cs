@@ -71,10 +71,39 @@ namespace GQuiz.Hubs
                 }
                 await _context.SaveChangesAsync();
 
-                // Notify host
+                // Notify host of tab switch
                 await Clients.Group($"Session_{sessionId}")
                     .SendAsync("TabSwitchDetected", userId, participant.TabSwitchCount);
                 _logger.LogInformation("TabSwitchDetected sent for session={SessionId} user={UserId} count={Count}", sessionId, userId, participant.TabSwitchCount);
+
+                // If threshold exceeded, kick participant from session and notify host
+                if (participant.TabSwitchCount >= 3)
+                {
+                    // Find connections for this user in this session and notify them
+                    var connections = _connectionToUser
+                        .Where(kv => kv.Value == userId && _connectionToSession.TryGetValue(kv.Key, out var s) && s == sessionId)
+                        .Select(kv => kv.Key)
+                        .ToList();
+
+                    foreach (var connId in connections)
+                    {
+                        try
+                        {
+                            await Clients.Client(connId).SendAsync("Kicked", "Exceeded tab switch limit");
+                            // Remove from SignalR group so they no longer receive session events
+                            await Groups.RemoveFromGroupAsync(connId, $"Session_{sessionId}");
+                            _logger.LogInformation("Kicked connection {ConnectionId} for user {UserId} from session {SessionId}", connId, userId, sessionId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error notifying or removing connection {ConnectionId} for kick", connId);
+                        }
+                    }
+
+                    // Notify host UI that participant was kicked
+                    await Clients.Group($"Session_{sessionId}").SendAsync("ParticipantKicked", userId, participant.TabSwitchCount);
+                    _logger.LogInformation("ParticipantKicked sent for session={SessionId} user={UserId}", sessionId, userId);
+                }
             }
         }
 

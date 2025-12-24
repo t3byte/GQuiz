@@ -46,6 +46,9 @@
                     <a asp-page="/Host/ControlSession" asp-route-sessionId="@Model.SessionId" class="btn btn-primary btn-lg">
                         🎮 Start Quiz Control
                     </a>
+                    <a asp-page="/Host/ControlSession" asp-route-sessionId="@Model.SessionId" asp-route-automated="true" class="btn btn-warning btn-lg">
+                        🤖 Start Automated Session
+                    </a>
                     <a asp-page="/Host/Dashboard" class="btn btn-secondary">Back to Dashboard</a>
                 </div>
             </div>

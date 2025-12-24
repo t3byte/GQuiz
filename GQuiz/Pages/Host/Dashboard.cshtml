@@ -19,10 +19,10 @@
             <div class="stat-value">@Model.ActiveSessions</div>
             <div class="stat-label">Active Sessions</div>
         </div>
-        <div class="stat-card">
+        @* <div class="stat-card">
             <div class="stat-value">@Model.TotalParticipants</div>
             <div class="stat-label">Total Participants</div>
-        </div>
+        </div> *@
     </div>
 
     <div class="section">
@@ -60,6 +60,17 @@
     <div class="section">
         <h2>Recent Sessions</h2>
 
+        <div style="margin-bottom: 0.5rem;">
+            @if (Model.ShowAllSessions)
+            {
+                <a asp-page="/Host/Dashboard" asp-route-showAll="false" class="btn btn-sm">Show fewer</a>
+            }
+            else
+            {
+                <a asp-page="/Host/Dashboard" asp-route-showAll="true" class="btn btn-sm">Show all</a>
+            }
+        </div>
+
         @if (Model.RecentSessions.Any())
         {
             <div class="sessions-list">
@@ -83,6 +94,11 @@
                             else if (session.Status == SessionStatus.Completed)
                             {
                                 <a asp-page="/Host/SessionResults" asp-route-sessionId="@session.Id" class="btn btn-secondary btn-sm">View Results</a>
+
+                                @* <form method="post" asp-page-handler="Delete" style="display:inline-block; margin-left:8px;" onsubmit="return confirm('Delete this completed session? This cannot be undone.');">
+                                    <input type="hidden" name="sessionId" value="@session.Id" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form> *@
                             }
                             else if (session.Status == SessionStatus.NotStarted)
                             {

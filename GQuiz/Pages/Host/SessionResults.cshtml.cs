@@ -68,5 +68,39 @@ namespace GQuiz.Pages.Host
 
             return Page();
         }
+
+        public async Task<IActionResult> OnPostDeleteAsync(int sessionId)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var isHost = HttpContext.Session.GetString("IsHost");
+
+            if (userId == null || isHost != "true")
+            {
+                return RedirectToPage("/Login");
+            }
+
+            var session = await _context.QuizSessions.FindAsync(sessionId);
+            if (session == null || session.HostId != userId.Value)
+            {
+                return Forbid();
+            }
+
+            if (session.Status != SessionStatus.Completed && session.Status != SessionStatus.NotStarted)
+            {
+                return BadRequest();
+            }
+
+            // Remove session and related participants/answers if desired
+            var participants = _context.QuizParticipants.Where(p => p.SessionId == sessionId);
+            _context.QuizParticipants.RemoveRange(participants);
+
+            var answers = _context.Answers.Where(a => a.SessionId == sessionId);
+            _context.Answers.RemoveRange(answers);
+
+            _context.QuizSessions.Remove(session);
+            await _context.SaveChangesAsync();
+
+            return RedirectToPage("/Host/Dashboard");
+        }
     }
 }

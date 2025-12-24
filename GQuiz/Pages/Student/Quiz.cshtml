@@ -10,7 +10,8 @@
         Model.Session != null
             ? (object)Model.Session.Quiz.Questions
                 .OrderBy(q => q.OrderIndex)
-                .Select(q => new {
+                .Select(q => new
+                {
                     id = q.Id,
                     orderIndex = q.OrderIndex,
                     text = q.Text,
@@ -95,7 +96,7 @@
             </div>
 
             <div class="results-screen" id="resultsScreen" style="display: none;">
-                <div class="results-icon">🏆</div>
+                <div class="results-icon">🎉</div>
                 <h2>Quiz Completed!</h2>
                 <div class="final-score">
                     <div class="score-label">Your Final Score</div>
@@ -115,6 +116,18 @@
                 <p class="warning-count">Violations: <span id="violationCount">0</span>/3</p>
                 <p class="warning-text">3 violations will result in being flagged for cheating.</p>
                 <button class="btn btn-warning" onclick="closeWarning()">I Understand</button>
+            </div>
+        </div>
+
+        <!-- Kicked Modal -->
+        <div class="cheating-modal" id="kickedModal" style="display: none;">
+            <div class="cheating-content">
+                <div class="warning-icon">❗</div>
+                <h3 id="kickedTitle">You have been removed from the session</h3>
+                <p id="kickedReason">Reason: Excessive tab switching</p>
+                <div style="margin-top:1rem;">
+                    <button class="btn btn-danger" onclick="returnToHome()">Return to Home</button>
+                </div>
             </div>
         </div>
     </div>
@@ -575,6 +588,12 @@
                 console.warn('SignalR connection closed:', error);
             });
 
+            // Handle server kick notifications
+            connection.on("Kicked", (reason) => {
+                console.warn('Received Kicked from server:', reason);
+                handleKicked(reason);
+            });
+
             try {
                 await connection.start();
                 console.log("SignalR Connected");
@@ -723,13 +742,29 @@
             }
         }
 
-        function showCheatingWarning() {
-            document.getElementById('violationCount').textContent = tabSwitchCount;
-            document.getElementById('cheatingModal').style.display = 'flex';
+        function handleKicked(reason) {
+            // Stop timers and disable UI
+            clearInterval(timerInterval);
+            disableOptions();
+            // Close SignalR connection cleanly (fire-and-forget)
+            try { connection && connection.stop && connection.stop().catch(()=>{}); } catch (e) {}
+
+            // Hide other screens, show kicked modal
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('questionScreen').style.display = 'none';
+            document.getElementById('resultsScreen').style.display = 'none';
+            // Update modal text
+            document.getElementById('kickedReason').textContent = reason || 'You have been removed from the session.';
+            document.getElementById('kickedModal').style.display = 'flex';
         }
 
         function closeWarning() {
             document.getElementById('cheatingModal').style.display = 'none';
+        }
+
+        function returnToHome() {
+            // Redirect to student join page
+            window.location.href = '/Student/Join';
         }
 
         async function showResults() {
@@ -763,11 +798,11 @@
             const percent = total > 0 ? Math.round((obtained / total) * 100) : 0;
             let message = '';
             if (percent >= 80) {
-                message = '🌟 Outstanding! You\'re a quiz master!';
+                message = '🎉 Outstanding! You\'re a quiz master!';
             } else if (percent >= 60) {
                 message = '👏 Great job! Well done!';
             } else if (percent >= 40) {
-                message = '👍 Good effort! Keep practicing!';
+                message = '🙂 Good effort! Keep practicing!';
             } else {
                 message = '💪 Don\'t give up! Try again!';
             }

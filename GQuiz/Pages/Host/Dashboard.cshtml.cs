@@ -20,8 +20,9 @@ namespace GQuiz.Pages.Host
         public int TotalQuizzes { get; set; }
         public int ActiveSessions { get; set; }
         public int TotalParticipants { get; set; }
+        public bool ShowAllSessions { get; set; }
 
-        public async Task<IActionResult> OnGetAsync()
+        public async Task<IActionResult> OnGetAsync(bool showAll = false)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             var isHost = HttpContext.Session.GetString("IsHost");
@@ -37,13 +38,14 @@ namespace GQuiz.Pages.Host
                 .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync();
 
-            RecentSessions = await _context.QuizSessions
+            ShowAllSessions = showAll;
+            var sessionsQuery = _context.QuizSessions
                 .Where(s => s.HostId == userId.Value)
                 .Include(s => s.Quiz)
                 .Include(s => s.Participants)
-                .OrderByDescending(s => s.CreatedAt)
-                .Take(5)
-                .ToListAsync();
+                .OrderByDescending(s => s.CreatedAt);
+
+            RecentSessions = showAll ? await sessionsQuery.ToListAsync() : await sessionsQuery.Take(5).ToListAsync();
 
             TotalQuizzes = Quizzes.Count;
             ActiveSessions = RecentSessions.Count(s => s.Status == SessionStatus.InProgress);
@@ -70,9 +72,9 @@ namespace GQuiz.Pages.Host
                 return Forbid();
             }
 
-            if (session.Status != SessionStatus.NotStarted)
+            // Allow deleting sessions that haven't started or have completed and are no longer needed
+            if (session.Status != SessionStatus.NotStarted && session.Status != SessionStatus.Completed)
             {
-                // Only allow deleting sessions that haven't started
                 return BadRequest();
             }
 

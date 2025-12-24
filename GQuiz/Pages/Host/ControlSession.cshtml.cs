@@ -24,8 +24,9 @@ namespace GQuiz.Pages.Host
 
         public QuizSession? Session { get; set; }
         public int SessionId { get; set; }
+        public bool IsAutomated { get; set; }
 
-        public async Task<IActionResult> OnGetAsync(int sessionId)
+        public async Task<IActionResult> OnGetAsync(int sessionId, bool automated = false)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             var isHost = HttpContext.Session.GetString("IsHost");
@@ -36,6 +37,7 @@ namespace GQuiz.Pages.Host
             }
 
             SessionId = sessionId;
+            IsAutomated = automated;
             Session = await _context.QuizSessions
                 .Include(s => s.Quiz)
                     .ThenInclude(q => q.Questions)

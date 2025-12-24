@@ -102,6 +102,12 @@
 
     <div class="results-actions">
         <a asp-page="/Host/Dashboard" class="btn btn-primary">Back to Dashboard</a>
+
+        <form method="post" asp-page-handler="Delete" style="display:inline-block;">
+            <input type="hidden" name="sessionId" value="@Model.Session?.Id" />
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this completed session? This will remove the session and its data.')">🗑️ Delete Session</button>
+        </form>
+
         <button onclick="window.print()" class="btn btn-secondary">🖨️ Print Results</button>
     </div>
 </div>
