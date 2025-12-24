@@ -476,6 +476,13 @@
             try {
                 await connection.start();
                 console.log("SignalR Connected (host)");
+                try {
+                    // Join session group so host receives group events (e.g. TabSwitchDetected)
+                    await connection.invoke('JoinSession', sessionId, 0);
+                    console.log('Host joined session group via JoinSession');
+                } catch (joinErr) {
+                    console.warn('Host JoinSession warning:', joinErr);
+                }
             } catch (err) {
                 console.error("SignalR Connection Error (host):", err);
                 throw err;
@@ -628,7 +635,7 @@
                     list.innerHTML = '<div class="empty-participants">Waiting for participants...</div>';
                 } else {
                     list.innerHTML = participants.map(p => `
-                        <div class="participant-item">
+                        <div class="participant-item" data-user-id="${p.userId}">
                             <span class="participant-name">${p.username}</span>
                             <span class="participant-status ${p.isFlagged ? 'status-flagged' : 'status-active'}">
                                 ${p.isFlagged ? '⚠️ Flagged' : '✓ Active'}
@@ -664,14 +671,37 @@
             }
         }
 
-        function addCheatingAlert(userId, count) {
+        async function addCheatingAlert(userId, count) {
             const alertsContainer = document.getElementById('cheatingAlerts');
             const noAlerts = alertsContainer.querySelector('.no-alerts');
             if (noAlerts) noAlerts.remove();
 
+            // Try to find username from participants list rendered on the page
+            let username = null;
+            const participantEl = document.querySelector(`.participant-item[data-user-id="${userId}"]`);
+            if (participantEl) {
+                const nameEl = participantEl.querySelector('.participant-name');
+                if (nameEl) username = nameEl.textContent.trim();
+            }
+
+            // Fallback: fetch participants endpoint and lookup username
+            if (!username) {
+                try {
+                    const res = await fetch(`/Host/ControlSession?handler=Participants&sessionId=${sessionId}`);
+                    if (res.ok) {
+                        const list = await res.json();
+                        const found = list.find(p => p.userId == userId);
+                        if (found) username = found.username;
+                    }
+                } catch (err) {
+                    console.debug('Could not fetch participants for cheating alert lookup', err);
+                }
+            }
+
+            const displayName = username ? username : `User ID: ${userId}`;
             const alertHtml = `
                 <div class="alert-item">
-                    <div class="alert-user">User ID: ${userId}</div>
+                    <div class="alert-user">${displayName}</div>
                     <div class="alert-message">Tab switch detected (${count} times)</div>
                 </div>
             `;
