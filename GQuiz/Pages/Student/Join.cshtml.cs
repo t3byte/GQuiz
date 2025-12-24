@@ -70,7 +70,14 @@ namespace GQuiz.Pages.Student
                 return Page();
             }
 
-            // Allow joining whether session is NotStarted or InProgress
+            // Disallow joining if quiz already in progress
+            if (Session.Status == SessionStatus.InProgress)
+            {
+                ErrorMessage = "This quiz has already started and cannot be joined.";
+                return Page();
+            }
+
+            // Allow joining when session is NotStarted
             SessionId = Session.Id;
             return Page();
         }
@@ -81,6 +88,22 @@ namespace GQuiz.Pages.Student
             if (userId == null)
             {
                 return RedirectToPage("/Login");
+            }
+
+            var session = await _context.QuizSessions.FindAsync(sessionId);
+            if (session == null)
+            {
+                ErrorMessage = "Session not found.";
+                return Page();
+            }
+
+            // Prevent joining if quiz already started
+            if (session.Status == SessionStatus.InProgress)
+            {
+                ErrorMessage = "This quiz has already started and cannot be joined.";
+                SessionId = sessionId;
+                Session = session;
+                return Page();
             }
 
             // Check if already joined

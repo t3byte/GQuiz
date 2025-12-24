@@ -52,10 +52,10 @@
                     <div class="stat-label">Your Score</div>
                     <div class="stat-value" id="userScore">0</div>
                 </div>
-                <div class="stat-box">
+                @* <div class="stat-box">
                     <div class="stat-label">Rank</div>
                     <div class="stat-value" id="userRank">-</div>
-                </div>
+                </div> *@
             </div>
         </div>
 
@@ -553,7 +553,8 @@
             });
 
             connection.on("AnswerResult", (isCorrect, points) => {
-                showAnswerFeedback(isCorrect, points);
+                   updateScore(points);
+            //     showAnswerFeedback(isCorrect, points);
             });
 
             connection.onreconnecting((error) => {
@@ -643,9 +644,11 @@
             let timeLeft = seconds;
             const timerFill = document.getElementById('timerFill');
             const timerText = document.getElementById('timerText');
+            const feedback = document.getElementById('answerFeedback');
 
             timerFill.style.width = '100%';
             timerText.textContent = timeLeft + 's';
+            feedback.style.display = 'none';
 
             timerInterval = setInterval(() => {
                 timeLeft--;
@@ -657,7 +660,9 @@
                     clearInterval(timerInterval);
                     disableOptions();
                     if (!hasAnswered) {
-                        showAnswerFeedback(false, 0);
+                        feedback.style.display = 'block';
+                        feedback.className = 'answer-feedback incorrect';
+                        feedback.innerHTML = `⏰ Time's up!`;
                     }
                 }
             }, 1000);
@@ -684,20 +689,20 @@
             }
         }
 
-        function showAnswerFeedback(isCorrect, points) {
-            const feedback = document.getElementById('answerFeedback');
-            feedback.style.display = 'block';
-            feedback.className = 'answer-feedback ' + (isCorrect ? 'correct' : 'incorrect');
+        // function showAnswerFeedback(isCorrect, points) {
+        //     const feedback = document.getElementById('answerFeedback');
+        //     feedback.style.display = 'block';
+        //     feedback.className = 'answer-feedback ' + (isCorrect ? 'correct' : 'incorrect');
 
-            if (isCorrect) {
-                feedback.innerHTML = `✅ Correct! +${points} points`;
-                updateScore(points);
-            } else {
-                feedback.innerHTML = `❌ Incorrect. The correct answer was ${currentQuestion.correctAnswer}`;
-            }
+        //     if (isCorrect) {
+        //         feedback.innerHTML = `✅ Correct! +${points} points`;
+        //         updateScore(points);
+        //     } else {
+        //         feedback.innerHTML = `❌ Incorrect. The correct answer was ${currentQuestion.correctAnswer}`;
+        //     }
 
-            clearInterval(timerInterval);
-        }
+        //     clearInterval(timerInterval);
+        // }
 
         function updateScore(points) {
             const scoreEl = document.getElementById('userScore');
@@ -734,23 +739,40 @@
             document.getElementById('questionScreen').style.display = 'none';
             document.getElementById('resultsScreen').style.display = 'block';
 
-            const finalScore = parseInt(document.getElementById('userScore').textContent);
-            document.getElementById('finalScore').textContent = finalScore;
+            // Read obtained score (validated earlier by updateScore)
+            let obtained = parseInt(document.getElementById('userScore').textContent, 10);
+            if (isNaN(obtained)) obtained = 0;
 
-            // Get message based on score
+            // Compute total possible points from initialQuestions
+            let total = 0;
+            try {
+                if (Array.isArray(initialQuestions)) {
+                    total = initialQuestions.reduce((sum, q) => {
+                        const p = Number(q?.points ?? 0);
+                        return sum + (Number.isFinite(p) ? p : 0);
+                    }, 0);
+                }
+            } catch (e) {
+                total = 0;
+            }
+
+            // Show obtained/total on results screen (e.g. 40/50)
+            document.getElementById('finalScore').textContent = `${obtained}/${total}`;
+
+            // Compute percentage and choose message thresholds based on percent
+            const percent = total > 0 ? Math.round((obtained / total) * 100) : 0;
             let message = '';
-            if (finalScore >= 80) {
+            if (percent >= 80) {
                 message = '🌟 Outstanding! You\'re a quiz master!';
-            } else if (finalScore >= 60) {
+            } else if (percent >= 60) {
                 message = '👏 Great job! Well done!';
-            } else if (finalScore >= 40) {
+            } else if (percent >= 40) {
                 message = '👍 Good effort! Keep practicing!';
             } else {
                 message = '💪 Don\'t give up! Try again!';
             }
             document.getElementById('resultsMessage').textContent = message;
-
-        }
+         }
 
         // start the connection when page loads
         initializeConnection();
