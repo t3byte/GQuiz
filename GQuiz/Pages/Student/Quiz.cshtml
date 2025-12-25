@@ -82,7 +82,10 @@
                 </div>
 
                 <div class="question-content">
-                    <div class="question-number" id="questionNumber">Question 1</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                        <div class="question-number" id="questionNumber">Question 1</div>
+                        <div class="question-points" id="questionPoints">Points: 0</div>
+                    </div>
                     <div class="question-text" id="questionText"></div>
                 </div>
 
@@ -290,6 +293,16 @@
             font-weight: 600;
             color: var(--primary);
             margin-bottom: 1rem;
+        }
+
+        .question-points {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--success);
+            background: linear-gradient(90deg, rgba(16,185,129,0.08), rgba(34,197,94,0.06));
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(34,197,94,0.12);
         }
 
         .question-text {
@@ -520,6 +533,10 @@
         let questionStartTime;
         let tabSwitchCount = 0;
         let hasAnswered = false;
+        // New state for deferred scoring
+        let pendingPoints = 0;
+        let hasAnswerResult = false;
+        let scoreApplied = false;
 
         // Anti-cheating: Tab visibility detection
         document.addEventListener('visibilitychange', async function() {
@@ -555,9 +572,20 @@
 
             connection.on("QuestionEnded", (sessId, questionId) => {
                 console.log('Received QuestionEnded', sessId, questionId);
-                // Disable options if current question matches
+
+                // Disable options and apply scoring only once when the authoritative end arrives
                 if (currentQuestion && currentQuestion.id === questionId) {
                     disableOptions();
+                    clearInterval(timerInterval);
+
+                    if (!scoreApplied) {
+                        updateScore(hasAnswerResult ? pendingPoints : 0);
+                        scoreApplied = true;
+                    }
+
+                    // reset per-question stored result for the next question
+                    pendingPoints = 0;
+                    hasAnswerResult = false;
                 }
             });
 
@@ -565,9 +593,12 @@
                 showResults();
             });
 
+            // Server sends the result data, but scoring is applied only when the question ends
             connection.on("AnswerResult", (isCorrect, points) => {
-                   updateScore(points);
-            //     showAnswerFeedback(isCorrect, points);
+                pendingPoints = Number(points) || 0;
+                hasAnswerResult = true;
+                // Optionally you could show temporary feedback here without applying score
+                // showAnswerFeedback(isCorrect, points);
             });
 
             connection.onreconnecting((error) => {
@@ -625,6 +656,11 @@
         }
 
         function displayQuestion(question, initialRemainingSeconds) {
+            // reset per-question scoring/state
+            scoreApplied = false;
+            pendingPoints = 0;
+            hasAnswerResult = false;
+
             currentQuestion = question;
             hasAnswered = false;
             questionStartTime = Date.now();
@@ -635,6 +671,9 @@
             document.getElementById('answerFeedback').style.display = 'none';
 
             document.getElementById('questionNumber').textContent = `Question ${question.orderIndex + 1}`;
+            // show question points
+            const qp = document.getElementById('questionPoints');
+            if (qp) qp.textContent = `Points: ${question.points ?? 0}`;
             document.getElementById('questionText').textContent = question.text;
 
             const optionsHtml = `
@@ -678,6 +717,13 @@
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     disableOptions();
+
+                    // apply score once if not already applied by QuestionEnded event
+                    if (!scoreApplied) {
+                        updateScore(hasAnswerResult ? pendingPoints : 0);
+                        scoreApplied = true;
+                    }
+
                     if (!hasAnswered) {
                         feedback.style.display = 'block';
                         feedback.className = 'answer-feedback incorrect';
